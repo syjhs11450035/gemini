@@ -1,0 +1,6 @@
+{
+  "name": "Gemini 復刻工作區",
+  "description": "以 Google Drive 為工作區的 Gemini 復刻版 AI 助手，整合 AI 瀏覽器、多模態分析與 API 自訂功能。",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
