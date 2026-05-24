@@ -1,17 +1,26 @@
 import React, { useState, useEffect } from "react";
-import { Sparkles, Trash2, Save, FileCode, CheckCircle2, Clock } from "lucide-react";
+import { 
+  Sparkles, Trash2, Save, FileCode, CheckCircle2, Clock, 
+  Mic2, Music, Database, Image as ImageIcon, Video, 
+  Search, MapPin, ScanText, BrainCircuit, Maximize,
+  Menu, Settings, Eye, Layout, LogOut, PlayCircle, Layers
+} from "lucide-react";
 import { motion } from "motion/react";
+import { ChatPanel } from "./frontend/components/ChatPanel";
 
 export default function App() {
+  const [activeTab, setActiveTab] = useState<"ai" | "view" | "settings">("ai");
   const [draft, setDraft] = useState<string>(() => {
     return localStorage.getItem("workspace_draft") || "/* 歡迎來到您的全新空白工作區。\n您可以在此直接記錄點詞、想法或規劃您的下一個精彩專案！ */\n\n";
   });
+  const [activeTool, setActiveTool] = useState<string>("spark");
   const [status, setStatus] = useState({
     apiStatus: "Checking...",
     filesCount: 0,
     currentTime: ""
   });
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Load status and set periodic clock updates
   useEffect(() => {
@@ -24,7 +33,8 @@ export default function App() {
           setStatus(prev => ({ ...prev, apiStatus: "連線正常 (Active)" }));
         }
       } catch (err) {
-        setStatus(prev => ({ ...prev, apiStatus: "偏遠離線 (Local Only)" }));
+        const port = window.location.port || "3000";
+        setStatus(prev => ({ ...prev, apiStatus: `訪問 Port ${port} 失敗 (CORS/離線)` }));
       }
     };
     checkHealth();
@@ -55,6 +65,28 @@ export default function App() {
     if (confirm("確認清除草稿內容嗎？")) {
       setDraft("");
       localStorage.setItem("workspace_draft", "");
+    }
+  };
+
+  // Call AI API based on active tool and draft content
+  const handleExecuteAI = async () => {
+    setIsProcessing(true);
+    try {
+      const res = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: draft,
+          provider: activeTool === "spark" ? "gemini-1.5-pro" : "groq-llama3",
+          context: { tool: activeTool }
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDraft(prev => prev + `\n\n/* AI 回應 (${activeTool}): */\n${data.data}`);
+      }
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -109,6 +141,20 @@ export default function App() {
             </p>
           </div>
         </motion.div>
+
+        {/* AI Agent Plugin Toolbox */}
+        <div className="flex flex-wrap gap-3 mb-2">
+          <ToolIcon icon={<Sparkles className="w-4 h-4" />} label="spark" active={activeTool === 'spark'} onClick={() => setActiveTool('spark')} />
+          <ToolIcon icon={<Mic2 className="w-4 h-4" />} label="audio_spark" active={activeTool === 'audio_spark'} onClick={() => setActiveTool('audio_spark')} />
+          <ToolIcon icon={<Search className="w-4 h-4" />} label="google" active={activeTool === 'google'} onClick={() => setActiveTool('google')} />
+          <ToolIcon icon={<MapPin className="w-4 h-4" />} label="google_pin" active={activeTool === 'google_pin'} onClick={() => setActiveTool('google_pin')} />
+          <ToolIcon icon={<ScanText className="w-4 h-4" />} label="document_scanner" active={activeTool === 'document_scanner'} onClick={() => setActiveTool('document_scanner')} />
+          <ToolIcon icon={<BrainCircuit className="w-4 h-4" />} label="advanced_math" active={activeTool === 'advanced_math'} onClick={() => setActiveTool('advanced_math')} />
+          <ToolIcon icon={<ImageIcon className="w-4 h-4" />} label="image" active={activeTool === 'image'} onClick={() => setActiveTool('image')} />
+          <ToolIcon icon={<Music className="w-4 h-4" />} label="music_note" active={activeTool === 'music_note'} onClick={() => setActiveTool('music_note')} />
+          <ToolIcon icon={<Video className="w-4 h-4" />} label="movie" active={activeTool === 'movie'} onClick={() => setActiveTool('movie')} />
+          <ToolIcon icon={<Maximize className="w-4 h-4" />} label="aspect_ratio" active={activeTool === 'aspect_ratio'} onClick={() => setActiveTool('aspect_ratio')} />
+        </div>
 
         {/* Dynamic Bento Panel Grid layout */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -180,8 +226,15 @@ export default function App() {
                   <Trash2 className="w-4 h-4" />
                 </button>
                 <button
+                  onClick={handleExecuteAI}
+                  disabled={isProcessing}
+                  className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 text-white text-xs font-semibold px-4 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow"
+                >
+                  {isProcessing ? "處理中..." : <><Sparkles className="w-3.5 h-3.5" /> 執行 Agent</>}
+                </button>
+                <button
                   onClick={handleSaveDraft}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-4 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow"
+                  className="bg-white/5 hover:bg-white/10 text-white text-xs font-semibold px-4 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1.5 border border-white/5"
                 >
                   <Save className="w-3.5 h-3.5" /> 儲存草稿
                 </button>
@@ -210,17 +263,68 @@ export default function App() {
           </div>
 
         </div>
-
       </main>
+    );
+  }
 
-      {/* Footer */}
-      <footer className="mt-auto border-t border-white/5 py-6 bg-slate-950/50">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <span>Gemini 經典復刻工作區 © 2026 - Blank Sandbox Template</span>
-          <span>使用 Vite 引擎的高速快取預覽</span>
+  // 檢視視圖 (匹配 檢視.svg)
+  function renderViewWorkspace() {
+    return (
+      <div className="flex-1 p-10 flex flex-col gap-6">
+        <div className="flex gap-4">
+          <button className="bg-indigo-600 px-4 py-2 rounded flex items-center gap-2"><PlayCircle size={16}/> 開始暫停</button>
+          <button className="bg-indigo-900 px-4 py-2 rounded">類型</button>
+          <button className="bg-indigo-900 px-4 py-2 rounded">選擇</button>
         </div>
-      </footer>
+        <div className="flex-1 bg-indigo-500/10 rounded-2xl border-2 border-dashed border-indigo-500/20 flex items-center justify-center">
+          <h1 className="text-6xl font-black text-indigo-500/30">VIEW</h1>
+        </div>
+      </div>
+    );
+  }
 
+  // 設定視圖 (匹配 設定.svg)
+  function renderSettingsWorkspace() {
+    return (
+      <div className="flex-1 p-10 grid grid-cols-3 gap-8">
+        <div className="bg-emerald-600/20 border border-emerald-500/30 rounded-xl p-6 h-64 flex items-end">
+          <span className="font-bold">雲端硬碟狀態</span>
+        </div>
+        <div className="bg-indigo-600/20 border border-indigo-500/30 rounded-xl p-6 h-48 flex items-end">
+          <span className="font-bold">API 金鑰管理</span>
+        </div>
+        <div className="flex flex-col gap-4">
+          <button className="bg-rose-600 px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2">
+            <LogOut size={18}/> 登出
+          </button>
+          <div className="text-indigo-400 space-y-2 mt-4">
+            <p>• google drive 登出</p>
+            <p>• 最佳化空間</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+}
+
+function NavItem({ label, active, onClick }: { label: string, active: boolean, onClick: () => void }) {
+  return (
+    <button onClick={onClick} className={`text-sm font-bold transition-colors ${active ? 'text-indigo-400' : 'text-slate-400 hover:text-white'}`}>
+      {label}
+    </button>
+  )
+}
+
+function ToolIcon({ icon, label, active = false, onClick }: { icon: React.ReactNode, label: string, active?: boolean, onClick?: () => void }) {
+  return (
+    <div 
+      onClick={onClick}
+      className={`
+      flex items-center gap-2 px-3 py-2 rounded-xl border transition-all cursor-pointer
+      ${active ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-200' : 'bg-slate-900/50 border-white/5 text-slate-500 hover:border-white/20'}
+    `}>
+      {icon}
+      <span className="text-[10px] font-mono font-bold uppercase tracking-tighter">{label}</span>
     </div>
   );
 }
